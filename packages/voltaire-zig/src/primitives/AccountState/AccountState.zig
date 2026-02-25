@@ -30,6 +30,13 @@
 //! // Check account type
 //! if (state.isEOA()) { ... }
 //! if (state.isContract()) { ... }
+//!
+//! // EIP-161 / EIP-7610 predicates
+//! if (state.isEmpty()) { ... }        // nonce=0, balance=0, code=empty
+//! if (state.isTotallyEmpty()) { ... } // isEmpty AND storage_root=empty
+//! if (state.isAlive()) { ... }        // NOT isEmpty
+//! if (state.hasCodeOrNonce()) { ... } // EIP-684 collision check
+//! if (state.hasCodeOrNonceOrStorage()) { ... } // EIP-7610 collision check
 //! ```
 
 const std = @import("std");
@@ -127,6 +134,53 @@ pub const AccountState = struct {
             self.balance == other.balance and
             std.mem.eql(u8, &self.storage_root, &other.storage_root) and
             std.mem.eql(u8, &self.code_hash, &other.code_hash);
+    }
+
+    /// Check whether this account is "empty" per EIP-161.
+    ///
+    /// An account is empty when: nonce == 0, balance == 0, code_hash == EMPTY_CODE_HASH.
+    /// Does NOT check storage_root — use `isTotallyEmpty` for that.
+    ///
+    /// Equivalent to Python execution-specs: `account == EMPTY_ACCOUNT`
+    pub fn isEmpty(self: *const Self) bool {
+        return self.nonce == 0 and
+            self.balance == 0 and
+            std.mem.eql(u8, &self.code_hash, &EMPTY_CODE_HASH);
+    }
+
+    /// Check whether this account is "totally empty" — empty AND has no storage.
+    ///
+    /// Equivalent to Nethermind's `Account.IsTotallyEmpty`.
+    pub fn isTotallyEmpty(self: *const Self) bool {
+        return self.isEmpty() and
+            std.mem.eql(u8, &self.storage_root, &EMPTY_TRIE_ROOT);
+    }
+
+    /// Check whether this account is "alive" per execution-specs.
+    ///
+    /// An account is alive when it exists and is not empty.
+    /// Equivalent to Python's `is_account_alive()`.
+    pub fn isAlive(self: *const Self) bool {
+        return !self.isEmpty();
+    }
+
+    /// Check whether this account has code or a non-zero nonce.
+    ///
+    /// Used during CREATE to check for address collision (EIP-684).
+    /// For EIP-7610 (storage-aware collision), use `hasCodeOrNonceOrStorage`.
+    ///
+    /// Equivalent to Python's `account_has_code_or_nonce()`.
+    pub fn hasCodeOrNonce(self: *const Self) bool {
+        return self.nonce != 0 or
+            !std.mem.eql(u8, &self.code_hash, &EMPTY_CODE_HASH);
+    }
+
+    /// Check whether this account has code, a non-zero nonce, or non-empty storage.
+    ///
+    /// Equivalent to EIP-7610 collision semantics.
+    pub fn hasCodeOrNonceOrStorage(self: *const Self) bool {
+        return self.hasCodeOrNonce() or
+            !std.mem.eql(u8, &self.storage_root, &EMPTY_TRIE_ROOT);
     }
 
     /// RLP encode the account state.
@@ -654,4 +708,140 @@ test "encodeU256 - 1 ETH in Wei" {
     // 1 ETH = 0x0de0b6b3a7640000 (8 bytes)
     try std.testing.expectEqual(@as(usize, 9), encoded.len); // 1 byte prefix + 8 bytes data
     try std.testing.expectEqual(@as(u8, 0x88), encoded[0]); // 0x80 + 8
+}
+
+// ============================================================================
+// isEmpty / isTotallyEmpty / isAlive / hasCodeOrNonce / hasCodeOrNonceOrStorage
+// ============================================================================
+
+test "isEmpty: true for empty account" {
+    const acct = AccountState.createEmpty();
+    try std.testing.expect(acct.isEmpty());
+}
+
+test "isEmpty: false when nonce is non-zero" {
+    const acct = AccountState.from(.{ .nonce = 1 });
+    try std.testing.expect(!acct.isEmpty());
+}
+
+test "isEmpty: false when balance is non-zero" {
+    const acct = AccountState.from(.{ .balance = 42 });
+    try std.testing.expect(!acct.isEmpty());
+}
+
+test "isEmpty: false when code hash is non-empty" {
+    var custom_hash: Hash.Hash = undefined;
+    @memset(&custom_hash, 0xAB);
+    const acct = AccountState.from(.{ .code_hash = custom_hash });
+    try std.testing.expect(!acct.isEmpty());
+}
+
+test "isEmpty: true even with non-empty storage root" {
+    var custom_root: StateRoot.StateRoot = undefined;
+    @memset(&custom_root, 0xFF);
+    const acct = AccountState.from(.{
+        .code_hash = EMPTY_CODE_HASH,
+        .storage_root = custom_root,
+    });
+    try std.testing.expect(acct.isEmpty());
+}
+
+test "isTotallyEmpty: true for default empty account" {
+    const acct = AccountState.createEmpty();
+    try std.testing.expect(acct.isTotallyEmpty());
+}
+
+test "isTotallyEmpty: false when storage root is non-empty" {
+    var custom_root: StateRoot.StateRoot = undefined;
+    @memset(&custom_root, 0xFF);
+    const acct = AccountState.from(.{
+        .code_hash = EMPTY_CODE_HASH,
+        .storage_root = custom_root,
+    });
+    try std.testing.expect(acct.isEmpty());
+    try std.testing.expect(!acct.isTotallyEmpty());
+}
+
+test "isTotallyEmpty: false when nonce is non-zero" {
+    const acct = AccountState.from(.{ .nonce = 1 });
+    try std.testing.expect(!acct.isTotallyEmpty());
+}
+
+test "isAlive: true for non-zero nonce" {
+    const acct = AccountState.from(.{ .nonce = 1 });
+    try std.testing.expect(acct.isAlive());
+}
+
+test "isAlive: true for non-zero balance" {
+    const acct = AccountState.from(.{ .balance = 1 });
+    try std.testing.expect(acct.isAlive());
+}
+
+test "isAlive: false for empty account" {
+    const acct = AccountState.createEmpty();
+    try std.testing.expect(!acct.isAlive());
+}
+
+test "isAlive: false when only storage root is non-empty" {
+    var custom_root: StateRoot.StateRoot = undefined;
+    @memset(&custom_root, 0xAB);
+    const acct = AccountState.from(.{
+        .code_hash = EMPTY_CODE_HASH,
+        .storage_root = custom_root,
+    });
+    try std.testing.expect(!acct.isAlive());
+}
+
+test "hasCodeOrNonce: true when nonce is non-zero" {
+    const acct = AccountState.from(.{ .nonce = 5 });
+    try std.testing.expect(acct.hasCodeOrNonce());
+}
+
+test "hasCodeOrNonce: true when code is non-empty" {
+    var custom_hash: Hash.Hash = undefined;
+    @memset(&custom_hash, 0xCD);
+    const acct = AccountState.from(.{ .code_hash = custom_hash });
+    try std.testing.expect(acct.hasCodeOrNonce());
+}
+
+test "hasCodeOrNonce: false for empty account" {
+    const acct = AccountState.createEmpty();
+    try std.testing.expect(!acct.hasCodeOrNonce());
+}
+
+test "hasCodeOrNonce: false when only balance is set" {
+    const acct = AccountState.from(.{
+        .balance = 1_000_000,
+        .code_hash = EMPTY_CODE_HASH,
+    });
+    try std.testing.expect(!acct.hasCodeOrNonce());
+}
+
+test "hasCodeOrNonceOrStorage: true when storage root is non-empty" {
+    var custom_root: StateRoot.StateRoot = undefined;
+    @memset(&custom_root, 0xAA);
+    const acct = AccountState.from(.{
+        .code_hash = EMPTY_CODE_HASH,
+        .storage_root = custom_root,
+    });
+    try std.testing.expect(acct.hasCodeOrNonceOrStorage());
+}
+
+test "hasCodeOrNonceOrStorage: false for empty account" {
+    const acct = AccountState.createEmpty();
+    try std.testing.expect(!acct.hasCodeOrNonceOrStorage());
+}
+
+test "isEmpty and hasCodeOrNonce are mutually consistent" {
+    const empty = AccountState.createEmpty();
+    try std.testing.expect(empty.isEmpty());
+    try std.testing.expect(!empty.hasCodeOrNonce());
+
+    const with_nonce = AccountState.from(.{ .nonce = 1 });
+    try std.testing.expect(!with_nonce.isEmpty());
+    try std.testing.expect(with_nonce.hasCodeOrNonce());
+
+    const with_balance = AccountState.from(.{ .balance = 100 });
+    try std.testing.expect(!with_balance.isEmpty());
+    try std.testing.expect(!with_balance.hasCodeOrNonce());
 }

@@ -981,7 +981,7 @@ pub const Trie = struct {
                     return branch.value;
                 }
 
-                const nibble = nibbles[0];
+                const nibble: u4 = @intCast(nibbles[0]);
                 const child_hash = branch.get_child(nibble) orelse return null;
 
                 const remaining = nibbles[1..];
@@ -1040,7 +1040,7 @@ pub const Trie = struct {
                     return try self.store_node(new_node);
                 }
 
-                const nibble = nibbles[0];
+                const nibble: u4 = @intCast(nibbles[0]);
                 const remaining = nibbles[1..];
 
                 const child_hash = branch.get_child(nibble) orelse return node_hash;
@@ -1080,7 +1080,7 @@ pub const Trie = struct {
             const new_leaf = try LeafNode.init(self.allocator, new_nibbles[common_len + 1 ..], new_value);
             const new_leaf_node = Node{ .Leaf = new_leaf };
             const new_leaf_hash = try self.store_node(new_leaf_node);
-            branch.set_child(new_nibbles[common_len], new_leaf_hash);
+            branch.set_child(@intCast(new_nibbles[common_len]), new_leaf_hash);
         } else if (common_len == new_nibbles.len) {
             // New value becomes branch value
             branch.value = try self.allocator.dupe(u8, new_value);
@@ -1089,18 +1089,18 @@ pub const Trie = struct {
             const old_leaf = try LeafNode.init(self.allocator, leaf.nibbles[common_len + 1 ..], leaf.value);
             const old_leaf_node = Node{ .Leaf = old_leaf };
             const old_leaf_hash = try self.store_node(old_leaf_node);
-            branch.set_child(leaf.nibbles[common_len], old_leaf_hash);
+            branch.set_child(@intCast(leaf.nibbles[common_len]), old_leaf_hash);
         } else {
             // Both become children
             const old_leaf = try LeafNode.init(self.allocator, leaf.nibbles[common_len + 1 ..], leaf.value);
             const old_leaf_node = Node{ .Leaf = old_leaf };
             const old_leaf_hash = try self.store_node(old_leaf_node);
-            branch.set_child(leaf.nibbles[common_len], old_leaf_hash);
+            branch.set_child(@intCast(leaf.nibbles[common_len]), old_leaf_hash);
 
             const new_leaf = try LeafNode.init(self.allocator, new_nibbles[common_len + 1 ..], new_value);
             const new_leaf_node = Node{ .Leaf = new_leaf };
             const new_leaf_hash = try self.store_node(new_leaf_node);
-            branch.set_child(new_nibbles[common_len], new_leaf_hash);
+            branch.set_child(@intCast(new_nibbles[common_len]), new_leaf_hash);
         }
 
         const branch_node = Node{ .Branch = branch };
@@ -1126,9 +1126,9 @@ pub const Trie = struct {
             const remaining_ext = try ExtensionNode.init(self.allocator, ext.nibbles[common_len + 1 ..], ext.child_hash);
             const remaining_ext_node = Node{ .Extension = remaining_ext };
             const remaining_ext_hash = try self.store_node(remaining_ext_node);
-            branch.set_child(ext.nibbles[common_len], remaining_ext_hash);
+            branch.set_child(@intCast(ext.nibbles[common_len]), remaining_ext_hash);
         } else {
-            branch.set_child(ext.nibbles[common_len], ext.child_hash);
+            branch.set_child(@intCast(ext.nibbles[common_len]), ext.child_hash);
         }
 
         // New value goes into branch
@@ -1138,7 +1138,7 @@ pub const Trie = struct {
             const new_leaf = try LeafNode.init(self.allocator, new_nibbles[common_len + 1 ..], new_value);
             const new_leaf_node = Node{ .Leaf = new_leaf };
             const new_leaf_hash = try self.store_node(new_leaf_node);
-            branch.set_child(new_nibbles[common_len], new_leaf_hash);
+            branch.set_child(@intCast(new_nibbles[common_len]), new_leaf_hash);
         }
 
         const branch_node = Node{ .Branch = branch };

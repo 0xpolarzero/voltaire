@@ -115,6 +115,7 @@ pub const Bytes32 = @import("Bytes32/Bytes32.zig");
 pub const ChainId = @import("ChainId/ChainId.zig");
 pub const Epoch = @import("Epoch/Epoch.zig");
 pub const Hash = @import("Hash/Hash.zig");
+pub const Journal = @import("Journal/Journal.zig");
 pub const LogIndex = @import("LogIndex/LogIndex.zig");
 pub const Nonce = @import("Nonce/Nonce.zig");
 pub const PrivateKey = @import("PrivateKey/PrivateKey.zig");
@@ -305,6 +306,7 @@ pub const StealthAddress = @import("StealthAddress/StealthAddress.zig");
 
 // Data structures
 pub const Trie = @import("trie.zig").Trie;
+pub const TrieHash = @import("TrieHash/TrieHash.zig");
 pub const BloomFilter = @import("BloomFilter/bloom_filter.zig").BloomFilter;
 pub const BinaryTree = @import("BinaryTree/binary_tree.zig");
 

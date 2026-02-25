@@ -971,3 +971,61 @@ test "real block - mainnet cancun block" {
 
     try std.testing.expect(encoded.len > 0);
 }
+
+// ============================================================================
+// Validation Helpers
+// ============================================================================
+
+const GAS_LIMIT_ADJUSTMENT_FACTOR: u64 = 1024;
+
+/// Validates that the gas limit delta between header and parent is within bounds.
+/// The gas limit must be strictly within parent ± (parent / 1024).
+pub fn validateGasLimitDelta(
+    header: *const BlockHeader,
+    parent: *const BlockHeader,
+) error{InvalidGasLimit}!void {
+    const delta = parent.gas_limit / GAS_LIMIT_ADJUSTMENT_FACTOR;
+    if (header.gas_limit >= parent.gas_limit + delta) return error.InvalidGasLimit;
+    if (header.gas_limit + delta <= parent.gas_limit) return error.InvalidGasLimit;
+}
+
+/// Validates that the header timestamp is strictly greater than the parent's.
+pub fn validateTimestampStrictlyGreater(
+    header: *const BlockHeader,
+    parent: *const BlockHeader,
+) error{InvalidTimestamp}!void {
+    if (header.timestamp <= parent.timestamp) return error.InvalidTimestamp;
+}
+
+test "validateGasLimitDelta - accepts valid delta" {
+    var parent = init();
+    parent.gas_limit = 1_000_000;
+    var header_v = init();
+    header_v.gas_limit = 1_000_000;
+    try validateGasLimitDelta(&header_v, &parent);
+}
+
+test "validateGasLimitDelta - rejects at exact boundary" {
+    var parent = init();
+    parent.gas_limit = 1_000_000;
+    var header_v = init();
+    const delta = parent.gas_limit / GAS_LIMIT_ADJUSTMENT_FACTOR;
+    header_v.gas_limit = parent.gas_limit + delta;
+    try std.testing.expectError(error.InvalidGasLimit, validateGasLimitDelta(&header_v, &parent));
+}
+
+test "validateTimestampStrictlyGreater - accepts strictly greater" {
+    var parent = init();
+    parent.timestamp = 10;
+    var header_v = init();
+    header_v.timestamp = 11;
+    try validateTimestampStrictlyGreater(&header_v, &parent);
+}
+
+test "validateTimestampStrictlyGreater - rejects equal" {
+    var parent = init();
+    parent.timestamp = 42;
+    var header_v = init();
+    header_v.timestamp = 42;
+    try std.testing.expectError(error.InvalidTimestamp, validateTimestampStrictlyGreater(&header_v, &parent));
+}
