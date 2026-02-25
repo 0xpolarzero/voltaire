@@ -932,7 +932,7 @@ pub const Trie = struct {
                 }
 
                 // Insert into appropriate child
-                const nibble = nibbles[0];
+                const nibble: u4 = @intCast(nibbles[0]);
                 const remaining = nibbles[1..];
 
                 var new_branch = try branch.clone(self.allocator);
