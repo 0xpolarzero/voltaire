@@ -117,7 +117,7 @@ pub fn Evm(comptime config: EvmConfig) type {
 
         /// Initialize a new EVM instance
         /// Config provides defaults, but hardfork can be overridden at runtime
-        pub fn init(allocator: std.mem.Allocator, h: ?host.HostInterface, hardfork: ?Hardfork, block_context: ?BlockContext, log_level: ?log.LogLevel) !Self {
+        pub fn init(allocator: std.mem.Allocator, h: ?host.HostInterface, hardfork: ?Hardfork, block_context: ?BlockContext, origin: primitives.Address, gas_price: u256, log_level: ?log.LogLevel) !Self {
             // Set log level if provided
             if (log_level) |level| {
                 log.setLogLevel(level);
@@ -151,8 +151,8 @@ pub fn Evm(comptime config: EvmConfig) type {
                     .block_base_fee = 0,
                     .blob_base_fee = 0,
                 },
-                .origin = primitives.ZERO_ADDRESS,
-                .gas_price = 0,
+                .origin = origin,
+                .gas_price = gas_price,
                 .host = h,
                 .arena = arena,
                 .allocator = allocator,
