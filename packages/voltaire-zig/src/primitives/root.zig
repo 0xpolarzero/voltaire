@@ -105,6 +105,7 @@
 pub const AccountState = @import("AccountState/AccountState.zig");
 pub const Address = @import("Address/address.zig");
 pub const BeaconBlockRoot = @import("BeaconBlockRoot/BeaconBlockRoot.zig");
+pub const BeaconBlockHeader = @import("BeaconBlockHeader/BeaconBlockHeader.zig");
 pub const Block = @import("Block/Block.zig");
 pub const BlockBody = @import("BlockBody/BlockBody.zig");
 pub const BlockHash = @import("BlockHash/BlockHash.zig");
@@ -116,6 +117,8 @@ pub const ChainId = @import("ChainId/ChainId.zig");
 pub const Epoch = @import("Epoch/Epoch.zig");
 pub const Hash = @import("Hash/Hash.zig");
 pub const Journal = @import("Journal/Journal.zig");
+pub const LightClientHeader = @import("LightClientHeader/LightClientHeader.zig");
+pub const LightClientUpdate = @import("LightClientUpdate/LightClientUpdate.zig");
 pub const LogIndex = @import("LogIndex/LogIndex.zig");
 pub const Nonce = @import("Nonce/Nonce.zig");
 pub const PrivateKey = @import("PrivateKey/PrivateKey.zig");
@@ -124,6 +127,8 @@ pub const Signature = @import("Signature/Signature.zig").Signature;
 pub const Slot = @import("Slot/Slot.zig");
 pub const StateRoot = @import("StateRoot/StateRoot.zig");
 pub const StorageValue = @import("StorageValue/StorageValue.zig");
+pub const SyncCommittee = @import("SyncCommittee/SyncCommittee.zig");
+pub const SyncAggregate = @import("SyncAggregate/SyncAggregate.zig");
 pub const TransactionHash = @import("TransactionHash/TransactionHash.zig");
 
 // Filter types
@@ -154,6 +159,7 @@ pub const Abi = @import("Abi/Abi.zig");
 pub const AbiEncoding = @import("Abi/abi_encoding.zig");
 pub const Base64 = @import("base64.zig");
 pub const Ssz = @import("Ssz/root.zig");
+pub const consensus = @import("consensus/consensus.zig");
 
 // Utilities
 pub const Numeric = @import("Uint/numeric.zig");
@@ -186,6 +192,7 @@ pub const BaseFeePerGas = @import("BaseFeePerGas/BaseFeePerGas.zig").BaseFeePerG
 pub const MaxFeePerGas = @import("MaxFeePerGas/MaxFeePerGas.zig").MaxFeePerGas;
 pub const MaxPriorityFeePerGas = @import("MaxPriorityFeePerGas/MaxPriorityFeePerGas.zig").MaxPriorityFeePerGas;
 pub const EffectiveGasPrice = @import("EffectiveGasPrice/EffectiveGasPrice.zig").EffectiveGasPrice;
+pub const ExecutionPayloadHeader = @import("ExecutionPayloadHeader/ExecutionPayloadHeader.zig");
 pub const GasPrice = @import("GasPrice/GasPrice.zig").GasPrice;
 pub const FeeMarket = @import("FeeMarket/fee_market.zig");
 
@@ -267,6 +274,8 @@ pub const Hardfork = @import("Hardfork/hardfork.zig").Hardfork;
 pub const ForkTransition = @import("Hardfork/hardfork.zig").ForkTransition;
 pub const Eips = @import("Hardfork/Eips.zig").Eips;
 pub const EipOverride = @import("Hardfork/Eips.zig").EipOverride;
+pub const ConsensusSpec = @import("ConsensusSpec/ConsensusSpec.zig");
+pub const ForkConfig = @import("ForkConfig/ForkConfig.zig");
 
 // Network primitives
 pub const NetworkId = @import("NetworkId/NetworkId.zig");
