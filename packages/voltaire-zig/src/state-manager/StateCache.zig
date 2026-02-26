@@ -147,6 +147,10 @@ pub const AccountCache = struct {
     pub fn count(self: *AccountCache) usize {
         return self.cache.count();
     }
+
+    pub fn iterator(self: *AccountCache) std.AutoHashMap(Address, AccountState).Iterator {
+        return self.cache.iterator();
+    }
 };
 
 /// Storage cache with checkpointing (address -> slot -> value)

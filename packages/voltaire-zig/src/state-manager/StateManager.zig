@@ -170,6 +170,10 @@ pub const StateManager = struct {
             fork.clearCaches();
         }
     }
+
+    pub fn accountIterator(self: *StateManager) std.AutoHashMap(Address, StateCache.AccountState).Iterator {
+        return self.journaled_state.account_cache.iterator();
+    }
 };
 
 // Tests
