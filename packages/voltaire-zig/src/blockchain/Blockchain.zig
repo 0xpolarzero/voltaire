@@ -52,6 +52,15 @@ pub const Blockchain = struct {
         };
     }
 
+    /// Initialize a local-only blockchain with a genesis block.
+    pub fn initWithGenesis(allocator: std.mem.Allocator, chain_id: u64) !Blockchain {
+        var chain = try Blockchain.init(allocator, null);
+        const genesis = try Block.genesis(chain_id, allocator);
+        try chain.putBlock(genesis);
+        try chain.setCanonicalHead(genesis.hash);
+        return chain;
+    }
+
     pub fn deinit(self: *Blockchain) void {
         self.block_store.deinit();
     }
@@ -115,6 +124,32 @@ pub const Blockchain = struct {
     /// Get current head block number (local canonical chain)
     pub fn getHeadBlockNumber(self: *Blockchain) ?u64 {
         return self.block_store.getHeadBlockNumber();
+    }
+
+    pub const GetCanonicalHeadBlockError = error{MissingCanonicalHead};
+
+    /// Returns the canonical head block (local only).
+    pub fn getCanonicalHeadBlock(self: *Blockchain) GetCanonicalHeadBlockError!Block.Block {
+        const head_number = self.getHeadBlockNumber() orelse return error.MissingCanonicalHead;
+        const head_hash = self.getCanonicalHash(head_number) orelse return error.MissingCanonicalHead;
+        return self.getBlockLocal(head_hash) orelse error.MissingCanonicalHead;
+    }
+
+    pub const BlockTag = enum { latest, earliest, pending };
+
+    pub const GetBlockByTagError = error{
+        MissingCanonicalHead,
+        MissingGenesisBlock,
+        NotImplemented,
+    };
+
+    /// Returns a block by tag (local only). Pending is not implemented.
+    pub fn getBlockByTag(self: *Blockchain, tag: BlockTag) GetBlockByTagError!Block.Block {
+        return switch (tag) {
+            .latest => self.getCanonicalHeadBlock() catch error.MissingCanonicalHead,
+            .earliest => self.getBlockByNumberLocal(0) orelse error.MissingGenesisBlock,
+            .pending => error.NotImplemented,
+        };
     }
 
     // ========================================================================
@@ -356,6 +391,17 @@ pub const Blockchain = struct {
         }
 
         return out[write_start..];
+    }
+
+    pub const Last256BlockHashesFromHeadError = RecentBlockHashesError || error{MissingCanonicalHead};
+
+    /// Collects up to 256 recent block hashes from the canonical head (local only).
+    pub fn last256BlockHashesLocalFromCanonicalHead(
+        self: *Blockchain,
+        out: *[256]Hash.Hash,
+    ) Last256BlockHashesFromHeadError![]const Hash.Hash {
+        const head = self.getCanonicalHeadBlock() catch return error.MissingCanonicalHead;
+        return self.last256BlockHashesLocal(head.hash, out);
     }
 
     // ========================================================================
