@@ -72,6 +72,7 @@ pub fn build(b: *std.Build) void {
     });
     primitives_mod.addImport("crypto", crypto_mod);
     primitives_mod.addImport("z_ens_normalize", z_ens_normalize_mod);
+    primitives_mod.addImport("primitives", primitives_mod);
 
     // JSON-RPC module - Ethereum JSON-RPC type system (65 methods)
     const jsonrpc_mod = b.addModule("jsonrpc", .{
