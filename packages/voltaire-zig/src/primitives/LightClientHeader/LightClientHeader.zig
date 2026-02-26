@@ -1,43 +1,18 @@
-//! Light client header types
-//!
-//! Defines the header structures used by the light client protocol
+const std = @import("std");
+const primitives = @import("primitives");
 
-/// Light client header containing beacon and execution payload information
+comptime {
+    _ = primitives;
+}
+
 pub const LightClientHeader = struct {
-    /// Beacon block header
-    beacon: BeaconBlockHeader,
-    /// Execution payload header fields
-    execution: ExecutionPayloadHeaderFields,
-    /// Merkle proof branch for execution payload
-    execution_branch: [4][32]u8,
-
-    /// Create a new LightClientHeader
-    pub fn from(
-        beacon: BeaconBlockHeader,
-        execution: ExecutionPayloadHeaderFields,
-        execution_branch: [4][32]u8,
-    ) LightClientHeader {
-        return .{
-            .beacon = beacon,
-            .execution = execution,
-            .execution_branch = execution_branch,
-        };
-    }
-
-    /// Beacon block header as defined in consensus specs
     pub const BeaconBlockHeader = struct {
-        /// Slot number
         slot: u64,
-        /// Proposer validator index
         proposer_index: u64,
-        /// Parent block root
         parent_root: [32]u8,
-        /// State root
         state_root: [32]u8,
-        /// Body root
         body_root: [32]u8,
 
-        /// Create a new BeaconBlockHeader
         pub fn from(
             slot: u64,
             proposer_index: u64,
@@ -53,44 +28,34 @@ pub const LightClientHeader = struct {
                 .body_root = body_root,
             };
         }
+
+        pub fn equals(self: BeaconBlockHeader, other: BeaconBlockHeader) bool {
+            return self.slot == other.slot and
+                self.proposer_index == other.proposer_index and
+                std.mem.eql(u8, self.parent_root[0..], other.parent_root[0..]) and
+                std.mem.eql(u8, self.state_root[0..], other.state_root[0..]) and
+                std.mem.eql(u8, self.body_root[0..], other.body_root[0..]);
+        }
     };
 
-    /// Execution payload header fields for light clients
     pub const ExecutionPayloadHeaderFields = struct {
-        /// Parent block hash
         parent_hash: [32]u8,
-        /// Fee recipient address
         fee_recipient: [20]u8,
-        /// State root
         state_root: [32]u8,
-        /// Receipts root
         receipts_root: [32]u8,
-        /// Logs bloom filter
         logs_bloom: [256]u8,
-        /// Prev randao
         prev_randao: [32]u8,
-        /// Block number
         block_number: u64,
-        /// Gas limit
         gas_limit: u64,
-        /// Gas used
         gas_used: u64,
-        /// Timestamp
         timestamp: u64,
-        /// Base fee per gas
         base_fee_per_gas: u256,
-        /// Block hash
         block_hash: [32]u8,
-        /// Transactions root
         transactions_root: [32]u8,
-        /// Withdrawals root
         withdrawals_root: [32]u8,
-        /// Blob gas used
         blob_gas_used: u64,
-        /// Excess blob gas
         excess_blob_gas: u64,
 
-        /// Create new ExecutionPayloadHeaderFields
         pub fn from(
             parent_hash: [32]u8,
             fee_recipient: [20]u8,
@@ -128,5 +93,105 @@ pub const LightClientHeader = struct {
                 .excess_blob_gas = excess_blob_gas,
             };
         }
+
+        pub fn equals(self: ExecutionPayloadHeaderFields, other: ExecutionPayloadHeaderFields) bool {
+            return std.mem.eql(u8, self.parent_hash[0..], other.parent_hash[0..]) and
+                std.mem.eql(u8, self.fee_recipient[0..], other.fee_recipient[0..]) and
+                std.mem.eql(u8, self.state_root[0..], other.state_root[0..]) and
+                std.mem.eql(u8, self.receipts_root[0..], other.receipts_root[0..]) and
+                std.mem.eql(u8, self.logs_bloom[0..], other.logs_bloom[0..]) and
+                std.mem.eql(u8, self.prev_randao[0..], other.prev_randao[0..]) and
+                self.block_number == other.block_number and
+                self.gas_limit == other.gas_limit and
+                self.gas_used == other.gas_used and
+                self.timestamp == other.timestamp and
+                self.base_fee_per_gas == other.base_fee_per_gas and
+                std.mem.eql(u8, self.block_hash[0..], other.block_hash[0..]) and
+                std.mem.eql(u8, self.transactions_root[0..], other.transactions_root[0..]) and
+                std.mem.eql(u8, self.withdrawals_root[0..], other.withdrawals_root[0..]) and
+                self.blob_gas_used == other.blob_gas_used and
+                self.excess_blob_gas == other.excess_blob_gas;
+        }
     };
+
+    beacon: BeaconBlockHeader,
+    execution: ExecutionPayloadHeaderFields,
+    execution_branch: [4][32]u8,
+
+    pub fn from(
+        beacon: BeaconBlockHeader,
+        execution: ExecutionPayloadHeaderFields,
+        execution_branch: [4][32]u8,
+    ) LightClientHeader {
+        return .{
+            .beacon = beacon,
+            .execution = execution,
+            .execution_branch = execution_branch,
+        };
+    }
+
+    pub fn equals(self: LightClientHeader, other: LightClientHeader) bool {
+        return self.beacon.equals(other.beacon) and
+            self.execution.equals(other.execution) and
+            std.mem.eql(
+                u8,
+                std.mem.asBytes(&self.execution_branch),
+                std.mem.asBytes(&other.execution_branch),
+            );
+    }
 };
+
+fn fixtureLightClientHeader(slot: u64, marker: u8) LightClientHeader {
+    return LightClientHeader.from(
+        LightClientHeader.BeaconBlockHeader.from(
+            slot,
+            slot + 1,
+            [_]u8{marker} ** 32,
+            [_]u8{marker +% 1} ** 32,
+            [_]u8{marker +% 2} ** 32,
+        ),
+        LightClientHeader.ExecutionPayloadHeaderFields.from(
+            [_]u8{marker +% 3} ** 32,
+            [_]u8{marker +% 4} ** 20,
+            [_]u8{marker +% 5} ** 32,
+            [_]u8{marker +% 6} ** 32,
+            [_]u8{marker +% 7} ** 256,
+            [_]u8{marker +% 8} ** 32,
+            slot + 10,
+            30_000_000,
+            15_000_000,
+            1_700_000_000 + slot,
+            @as(u256, marker) + 1,
+            [_]u8{marker +% 9} ** 32,
+            [_]u8{marker +% 10} ** 32,
+            [_]u8{marker +% 11} ** 32,
+            slot + 12,
+            slot + 13,
+        ),
+        [_][32]u8{[_]u8{marker +% 12} ** 32} ** 4,
+    );
+}
+
+test "LightClientHeader: from creates header and exposes fields" {
+    const header = fixtureLightClientHeader(42, 9);
+
+    try std.testing.expectEqual(@as(u64, 42), header.beacon.slot);
+    try std.testing.expectEqual(@as(u64, 43), header.beacon.proposer_index);
+    try std.testing.expectEqual(@as(u64, 52), header.execution.block_number);
+    try std.testing.expectEqual(@as(u64, 54), header.execution.excess_blob_gas);
+    try std.testing.expectEqual(@as(u8, 21), header.execution_branch[0][0]);
+}
+
+test "LightClientHeader: equals returns true for identical headers" {
+    const left = fixtureLightClientHeader(7, 3);
+    const right = fixtureLightClientHeader(7, 3);
+
+    try std.testing.expect(left.equals(right));
+}
+
+test "LightClientHeader: equals returns false for different headers" {
+    const left = fixtureLightClientHeader(7, 3);
+    const right = fixtureLightClientHeader(8, 3);
+
+    try std.testing.expect(!left.equals(right));
+}
