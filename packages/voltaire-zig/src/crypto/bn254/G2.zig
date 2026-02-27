@@ -4,6 +4,7 @@ const FpMont = @import("FpMont.zig");
 const Fp2Mont = @import("Fp2Mont.zig");
 const Fr = @import("Fr.zig");
 const curve_parameters = @import("curve_parameters.zig");
+const wnaf = @import("NAF.zig").wnaf;
 
 pub const G2 = @This();
 x: Fp2Mont,
@@ -282,10 +283,10 @@ pub fn decomposeScalar(scalar: u256) ScalarDecomposition {
 }
 
 pub fn mul(self: *const G2, scalar: *const Fr) G2 {
-    return self.mulByInt(scalar.value);
+    return self.mulByInt(scalar.value, curve_parameters.G2_SCALAR.window_size);
 }
 
-pub fn mulByInt(self: *const G2, scalar: u256) G2 {
+pub fn mulByInt(self: *const G2, scalar: u256, window_size: comptime_int) G2 {
     if (self.isInfinity() or scalar == 0) {
         return INFINITY;
     }
@@ -304,44 +305,69 @@ pub fn mulByInt(self: *const G2, scalar: u256) G2 {
     if (decomposition.k3 < 0) base_points[2].negAssign();
     if (decomposition.k4 < 0) base_points[3].negAssign();
 
-    const precomputed_points = init_precomputed_points(&base_points);
+    const table_size = 1 << (window_size - 2);
 
-    const k1_abs: u70 = @intCast(@abs(decomposition.k1));
-    const k2_abs: u70 = @intCast(@abs(decomposition.k2));
-    const k3_abs: u70 = @intCast(@abs(decomposition.k3));
-    const k4_abs: u70 = @intCast(@abs(decomposition.k4));
+    const PrecomputedPoints = [4][table_size]G2{
+        base_points[0].createTable(table_size),
+        base_points[1].createTable(table_size),
+        base_points[2].createTable(table_size),
+        base_points[3].createTable(table_size),
+    };
 
-    const window_bits: usize = 70;
+    const k = [4][71]i8{
+        wnaf(window_size, u70, @abs(decomposition.k1)),
+        wnaf(window_size, u70, @abs(decomposition.k2)),
+        wnaf(window_size, u70, @abs(decomposition.k3)),
+        wnaf(window_size, u70, @abs(decomposition.k4)),
+    };
+
     var result = INFINITY;
-    var i: usize = 0;
-    while (i < window_bits) : (i += 1) {
+    for (0..70) |i| {
         result.doubleAssign();
-        const bit_index: u7 = @intCast(window_bits - 1 - i);
-        const prec_index = get_precomputed_index(k1_abs, k2_abs, k3_abs, k4_abs, bit_index);
-        if (prec_index != 0) {
-            result.addAssign(&precomputed_points[prec_index]);
+        for (0..4) |j| {
+            const bit = k[j][70 - i - 1];
+            if (bit != 0) {
+                const is_neg = if (bit < 0) true else false;
+                const index = @abs(bit) >> 1;
+                if (is_neg) {
+                    result.addAssign(&PrecomputedPoints[j][index].neg());
+                } else {
+                    result.addAssign(&PrecomputedPoints[j][index]);
+                }
+            }
         }
     }
 
     return result;
 }
 
-fn get_precomputed_index(k1: u70, k2: u70, k3: u70, k4: u70, i: u7) u4 {
-    const k4_bit = @as(u4, @intCast((k4 >> i) & 1));
-    const k3_bit = @as(u4, @intCast((k3 >> i) & 1));
-    const k2_bit = @as(u4, @intCast((k2 >> i) & 1));
-    const k1_bit = @as(u4, @intCast((k1 >> i) & 1));
-    return k4_bit << 3 | k3_bit << 2 | k2_bit << 1 | k1_bit;
-}
+// fn get_precomputed_index(k1: u70, k2: u70, k3: u70, k4: u70, i: u7) u4 {
+//     const k4_bit = @as(u4, @intCast((k4 >> i) & 1));
+//     const k3_bit = @as(u4, @intCast((k3 >> i) & 1));
+//     const k2_bit = @as(u4, @intCast((k2 >> i) & 1));
+//     const k1_bit = @as(u4, @intCast((k1 >> i) & 1));
+//     return k4_bit << 3 | k3_bit << 2 | k2_bit << 1 | k1_bit;
+// }
 
-fn init_precomputed_points(points: *const [4]G2) [16]G2 {
-    var result: [16]G2 = undefined;
-    result[0] = INFINITY;
-    inline for (0..4) |i| {
-        const current_size = 1 << i;
-        for (0..current_size) |j| {
-            result[current_size + j] = result[j].add(&points[i]);
-        }
+// fn init_precomputed_points(points: *const [4]G2) [16]G2 {
+//     var result: [16]G2 = undefined;
+//     result[0] = INFINITY;
+//     inline for (0..4) |i| {
+//         const current_size = 1 << i;
+//         for (0..current_size) |j| {
+//             result[current_size + j] = result[j].add(&points[i]);
+//         }
+//     }
+//     return result;
+// }
+
+//creates a table of size size containing P, 3P, 5P, 7P, ..., (2*size-1)P
+pub fn createTable(self: *const G2, size: comptime_int) [size]G2 {
+    var result: [size]G2 = undefined;
+    result[0] = self.*;
+    const double_point = self.double();
+    for (0..size - 1) |i| {
+        result[i + 1] = result[i].add(&double_point);
     }
     return result;
 }
@@ -361,11 +387,10 @@ pub fn frobenius(self: *const G2) G2 {
 pub fn lambdaEndomorphism(self: *const G2) G2 {
     const cube_root = FpMont.init(curve_parameters.G2_SCALAR.cube_root);
 
-    const self_aff = self.toAffine();
     return G2{
-        .x = self_aff.x.scalarMul(&cube_root),
-        .y = self_aff.y,
-        .z = Fp2Mont.ONE,
+        .x = self.x.scalarMul(&cube_root),
+        .y = self.y,
+        .z = self.z,
     };
 }
 
@@ -400,7 +425,7 @@ test "G2.curve order annihilates subgroup points" {
     for (scalars) |k| {
         var scalar = Fr.init(k);
         const point = G2.GENERATOR.mul(&scalar);
-        const multiple = point.mulByInt(order);
+        const multiple = point.mulByInt(order, curve_parameters.G2_SCALAR.window_size);
         try std.testing.expect(multiple.isInfinity());
     }
 }
@@ -526,21 +551,21 @@ test "G2.mul matches naive ladder" {
             }
             addend = addend.double();
         }
-        const actual = G2.GENERATOR.mulByInt(k);
+        const actual = G2.GENERATOR.mulByInt(k, curve_parameters.G2_SCALAR.window_size);
         try std.testing.expect(expected.equal(&actual));
     }
 }
 
 test "G2.mul edge cases" {
-    const zero = G2.GENERATOR.mulByInt(0);
+    const zero = G2.GENERATOR.mulByInt(0, curve_parameters.G2_SCALAR.window_size);
     try std.testing.expect(zero.isInfinity());
 
-    const one = G2.GENERATOR.mulByInt(1);
+    const one = G2.GENERATOR.mulByInt(1, curve_parameters.G2_SCALAR.window_size);
     try std.testing.expect(one.equal(&G2.GENERATOR));
 
     const near_order = curve_parameters.FR_MOD - 1;
     const neg_point = G2.GENERATOR.neg();
-    const result = G2.GENERATOR.mulByInt(near_order);
+    const result = G2.GENERATOR.mulByInt(near_order, curve_parameters.G2_SCALAR.window_size);
     try std.testing.expect(result.equal(&neg_point));
 }
 
