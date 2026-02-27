@@ -109,7 +109,7 @@ test "BN254 G1 scalar multiplication by curve order gives infinity" {
 }
 
 test "BN254 G1 point validation rejects off-curve points" {
-    const bad_x = FpMont.init(1);
+    const bad_x = FpMont.init(2);
     const bad_y = FpMont.init(2);
     const z = FpMont.ONE;
 
@@ -545,7 +545,6 @@ pub fn bn254Pairing(input: []const u8) !bool {
         const g1_y_bytes = input[pair_start + 32 .. pair_start + 64];
         const g1_x_value = std.mem.readInt(u256, g1_x_bytes[0..32], .big);
         const g1_y_value = std.mem.readInt(u256, g1_y_bytes[0..32], .big);
-
         const g1_point = if (g1_x_value == 0 and g1_y_value == 0)
             G1.INFINITY
         else blk: {
@@ -599,12 +598,12 @@ test "BN254 EIP-196 ECADD - add two points on curve" {
     @memset(&input, 0);
 
     // First point (generator)
-    std.mem.writeInt(u256, input[0..32], gen_affine.x.value, .big);
-    std.mem.writeInt(u256, input[32..64], gen_affine.y.value, .big);
+    std.mem.writeInt(u256, input[0..32], gen_affine.x.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[32..64], gen_affine.y.toStandardRepresentation(), .big);
 
     // Second point (generator)
-    std.mem.writeInt(u256, input[64..96], gen_affine.x.value, .big);
-    std.mem.writeInt(u256, input[96..128], gen_affine.y.value, .big);
+    std.mem.writeInt(u256, input[64..96], gen_affine.x.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[96..128], gen_affine.y.toStandardRepresentation(), .big);
 
     var output: [64]u8 = undefined;
     try bn254Add(&input, &output);
@@ -626,8 +625,8 @@ test "BN254 EIP-196 ECADD - add point to infinity" {
     @memset(&input, 0);
 
     // First point (generator)
-    std.mem.writeInt(u256, input[0..32], gen.x.value, .big);
-    std.mem.writeInt(u256, input[32..64], gen.y.value, .big);
+    std.mem.writeInt(u256, input[0..32], gen.x.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[32..64], gen.y.toStandardRepresentation(), .big);
 
     // Second point (infinity represented as (0,0))
     // Already zeroed
@@ -664,12 +663,12 @@ test "BN254 EIP-196 ECADD - add point and its negation" {
     @memset(&input, 0);
 
     // First point (generator)
-    std.mem.writeInt(u256, input[0..32], gen.x.value, .big);
-    std.mem.writeInt(u256, input[32..64], gen.y.value, .big);
+    std.mem.writeInt(u256, input[0..32], gen.x.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[32..64], gen.y.toStandardRepresentation(), .big);
 
     // Second point (negative generator)
-    std.mem.writeInt(u256, input[64..96], neg_gen.x.value, .big);
-    std.mem.writeInt(u256, input[96..128], neg_gen.y.value, .big);
+    std.mem.writeInt(u256, input[64..96], neg_gen.x.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[96..128], neg_gen.y.toStandardRepresentation(), .big);
 
     var output: [64]u8 = undefined;
     try bn254Add(&input, &output);
@@ -684,8 +683,8 @@ test "BN254 EIP-196 ECADD - invalid point returns error" {
     var input: [128]u8 = undefined;
     @memset(&input, 0);
 
-    // Invalid point (1, 2) not on curve
-    std.mem.writeInt(u256, input[0..32], 1, .big);
+    // Invalid point (2, 2) not on curve
+    std.mem.writeInt(u256, input[0..32], 2, .big);
     std.mem.writeInt(u256, input[32..64], 2, .big);
 
     // Second point is infinity
@@ -701,8 +700,8 @@ test "BN254 EIP-196 ECMUL - multiply by zero" {
     @memset(&input, 0);
 
     // Point (generator)
-    std.mem.writeInt(u256, input[0..32], gen.x.value, .big);
-    std.mem.writeInt(u256, input[32..64], gen.y.value, .big);
+    std.mem.writeInt(u256, input[0..32], gen.x.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[32..64], gen.y.toStandardRepresentation(), .big);
 
     // Scalar is 0 (already zeroed)
 
@@ -722,8 +721,8 @@ test "BN254 EIP-196 ECMUL - multiply by one" {
     @memset(&input, 0);
 
     // Point (generator)
-    std.mem.writeInt(u256, input[0..32], gen.x.value, .big);
-    std.mem.writeInt(u256, input[32..64], gen.y.value, .big);
+    std.mem.writeInt(u256, input[0..32], gen.x.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[32..64], gen.y.toStandardRepresentation(), .big);
 
     // Scalar is 1
     std.mem.writeInt(u256, input[64..96], 1, .big);
@@ -746,8 +745,8 @@ test "BN254 EIP-196 ECMUL - multiply by two" {
     @memset(&input, 0);
 
     // Point (generator)
-    std.mem.writeInt(u256, input[0..32], gen.x.value, .big);
-    std.mem.writeInt(u256, input[32..64], gen.y.value, .big);
+    std.mem.writeInt(u256, input[0..32], gen.x.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[32..64], gen.y.toStandardRepresentation(), .big);
 
     // Scalar is 2
     std.mem.writeInt(u256, input[64..96], 2, .big);
@@ -788,8 +787,8 @@ test "BN254 EIP-196 ECMUL - multiply by curve order" {
     @memset(&input, 0);
 
     // Point (generator)
-    std.mem.writeInt(u256, input[0..32], gen.x.value, .big);
-    std.mem.writeInt(u256, input[32..64], gen.y.value, .big);
+    std.mem.writeInt(u256, input[0..32], gen.x.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[32..64], gen.y.toStandardRepresentation(), .big);
 
     // Scalar is curve order (should give infinity)
     std.mem.writeInt(u256, input[64..96], FR_MOD, .big);
@@ -811,8 +810,8 @@ test "BN254 EIP-196 ECMUL - multiply by large scalar" {
     @memset(&input, 0);
 
     // Point (generator)
-    std.mem.writeInt(u256, input[0..32], gen.x.value, .big);
-    std.mem.writeInt(u256, input[32..64], gen.y.value, .big);
+    std.mem.writeInt(u256, input[0..32], gen.x.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[32..64], gen.y.toStandardRepresentation(), .big);
 
     // Scalar
     std.mem.writeInt(u256, input[64..96], scalar, .big);
@@ -850,14 +849,14 @@ test "BN254 EIP-197 ECPAIRING - single valid pairing" {
     @memset(&input, 0);
 
     // G1 point
-    std.mem.writeInt(u256, input[0..32], g1.x.value, .big);
-    std.mem.writeInt(u256, input[32..64], g1.y.value, .big);
+    std.mem.writeInt(u256, input[0..32], g1.x.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[32..64], g1.y.toStandardRepresentation(), .big);
 
     // G2 point
-    std.mem.writeInt(u256, input[64..96], g2.x.u0.value, .big);
-    std.mem.writeInt(u256, input[96..128], g2.x.u1.value, .big);
-    std.mem.writeInt(u256, input[128..160], g2.y.u0.value, .big);
-    std.mem.writeInt(u256, input[160..192], g2.y.u1.value, .big);
+    std.mem.writeInt(u256, input[64..96], g2.x.u0.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[96..128], g2.x.u1.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[128..160], g2.y.u0.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[160..192], g2.y.u1.toStandardRepresentation(), .big);
 
     const result = try bn254Pairing(&input);
     try std.testing.expect(!result); // e(G1, G2) != 1
@@ -878,20 +877,20 @@ test "BN254 EIP-197 ECPAIRING - bilinearity check" {
     @memset(&input, 0);
 
     // First pair: (2G1, 3G2)
-    std.mem.writeInt(u256, input[0..32], p1.x.value, .big);
-    std.mem.writeInt(u256, input[32..64], p1.y.value, .big);
-    std.mem.writeInt(u256, input[64..96], p2.x.u0.value, .big);
-    std.mem.writeInt(u256, input[96..128], p2.x.u1.value, .big);
-    std.mem.writeInt(u256, input[128..160], p2.y.u0.value, .big);
-    std.mem.writeInt(u256, input[160..192], p2.y.u1.value, .big);
+    std.mem.writeInt(u256, input[0..32], p1.x.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[32..64], p1.y.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[64..96], p2.x.u0.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[96..128], p2.x.u1.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[128..160], p2.y.u0.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[160..192], p2.y.u1.toStandardRepresentation(), .big);
 
     // Second pair: (-6G1, G2)
-    std.mem.writeInt(u256, input[192..224], p3.x.value, .big);
-    std.mem.writeInt(u256, input[224..256], p3.y.value, .big);
-    std.mem.writeInt(u256, input[256..288], p4.x.u0.value, .big);
-    std.mem.writeInt(u256, input[288..320], p4.x.u1.value, .big);
-    std.mem.writeInt(u256, input[320..352], p4.y.u0.value, .big);
-    std.mem.writeInt(u256, input[352..384], p4.y.u1.value, .big);
+    std.mem.writeInt(u256, input[192..224], p3.x.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[224..256], p3.y.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[256..288], p4.x.u0.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[288..320], p4.x.u1.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[320..352], p4.y.u0.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[352..384], p4.y.u1.toStandardRepresentation(), .big);
 
     const result = try bn254Pairing(&input);
     try std.testing.expect(result); // Product should equal 1
@@ -907,10 +906,10 @@ test "BN254 EIP-197 ECPAIRING - with infinity points" {
     // G1 point is infinity (0,0) - already zeroed
 
     // G2 point
-    std.mem.writeInt(u256, input[64..96], g2.x.u0.value, .big);
-    std.mem.writeInt(u256, input[96..128], g2.x.u1.value, .big);
-    std.mem.writeInt(u256, input[128..160], g2.y.u0.value, .big);
-    std.mem.writeInt(u256, input[160..192], g2.y.u1.value, .big);
+    std.mem.writeInt(u256, input[64..96], g2.x.u0.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[96..128], g2.x.u1.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[128..160], g2.y.u0.toStandardRepresentation(), .big);
+    std.mem.writeInt(u256, input[160..192], g2.y.u1.toStandardRepresentation(), .big);
 
     const result = try bn254Pairing(&input);
     try std.testing.expect(result); // e(0, G2) = 1
@@ -931,7 +930,7 @@ test "BN254 EIP-196 - scalar validation" {
 test "BN254 point serialization - point at infinity" {
     const inf = G1.INFINITY;
     try std.testing.expect(inf.x.equal(&FpMont.ZERO));
-    try std.testing.expect(inf.y.equal(&FpMont.ZERO));
+    try std.testing.expect(inf.y.equal(&FpMont.ONE));
     try std.testing.expect(inf.z.equal(&FpMont.ZERO));
 }
 
