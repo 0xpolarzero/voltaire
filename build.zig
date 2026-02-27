@@ -73,6 +73,16 @@ pub fn build(b: *std.Build) void {
     primitives_mod.addImport("crypto", crypto_mod);
     primitives_mod.addImport("z_ens_normalize", z_ens_normalize_mod);
 
+    // JSON-RPC module - Ethereum JSON-RPC type system (65 methods)
+    const jsonrpc_mod = b.addModule("jsonrpc", .{
+        .root_source_file = b.path("packages/voltaire-zig/src/jsonrpc/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    // jsonrpc types.zig uses hand-written types (Address, Hash, Quantity, BlockTag, BlockSpec)
+    // that are self-contained — no import of primitives or crypto is needed
+    _ = jsonrpc_mod; // Module is exported for external packages
+
     // Now add primitives to crypto (circular dependency resolved by Zig's lazy evaluation)
     crypto_mod.addImport("primitives", primitives_mod);
 
