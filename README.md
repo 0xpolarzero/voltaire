@@ -53,7 +53,6 @@ Voltaire Effect is the production grade robust abstraction layer for blockchain 
 ```typescript
 import { Effect } from "effect";
 import {
-  ContractRegistryService,
   makeContractRegistry,
   Provider,
   HttpTransport,
@@ -71,14 +70,14 @@ const Contracts = makeContractRegistry({
 });
 
 const program = Effect.gen(function* () {
-  const { USDC, WETH } = yield* ContractRegistryService;
+  const { USDC, WETH } = yield* Contracts.Service;
   const usdcBalance = yield* USDC.read.balanceOf(userAddress);
   const wethBalance = yield* WETH.read.balanceOf(userAddress);
   return { usdcBalance, wethBalance };
 }).pipe(
   Effect.retry({ times: 3 }),
   Effect.timeout("10 seconds"),
-  Effect.provide(Contracts),
+  Effect.provide(Contracts.layer),
   Effect.provide(Provider),
   Effect.provide(HttpTransport("https://eth.llamarpc.com"))
 );

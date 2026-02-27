@@ -1,22 +1,22 @@
 /**
- * @fileoverview ContractRegistryService for pre-configured contract instances.
+ * @fileoverview makeContractRegistry for pre-configured, type-safe contract instances.
  *
- * @module ContractRegistryService
+ * @module ContractRegistry
  * @since 0.5.0
  *
  * @description
- * Provides a service for defining and accessing a collection of typed contract
+ * Provides a factory for defining and accessing a collection of typed contract
  * instances. Define your contracts once with their ABIs and addresses, then
  * access them as a named map throughout your application.
  *
  * @example
  * ```typescript
  * import { Effect } from 'effect'
- * import { ContractRegistryService, makeContractRegistry, Provider, HttpTransport } from 'voltaire-effect'
+ * import { makeContractRegistry, Provider, HttpTransport } from 'voltaire-effect'
  *
  * const erc20Abi = [...] as const
  *
- * const contractsConfig = {
+ * const Contracts = makeContractRegistry({
  *   USDC: {
  *     abi: erc20Abi,
  *     address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
@@ -25,17 +25,15 @@
  *     abi: erc20Abi,
  *     address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
  *   }
- * } as const
- *
- * const Contracts = makeContractRegistry(contractsConfig)
+ * } as const)
  *
  * const program = Effect.gen(function* () {
- *   const contracts = yield* ContractRegistryService
+ *   const contracts = yield* Contracts.Service
  *   const usdcBalance = yield* contracts.USDC.read.balanceOf(userAddress)
  *   const wethBalance = yield* contracts.WETH.read.balanceOf(userAddress)
  *   return { usdcBalance, wethBalance }
  * }).pipe(
- *   Effect.provide(Contracts),
+ *   Effect.provide(Contracts.layer),
  *   Effect.provide(Provider),
  *   Effect.provide(HttpTransport('https://...'))
  * )
@@ -101,34 +99,29 @@ export type ContractRegistryShape<TConfig extends ContractRegistryConfig> = {
 };
 
 /**
- * Base shape for contract registry - allows any contract name to instance mapping.
+ * Return type of makeContractRegistry.
  *
- * @since 0.5.0
+ * @since 1.1.0
  */
-export type ContractRegistryBase = Record<
-	string,
-	ContractInstance<Abi> | ContractFactory<Abi>
->;
+export interface ContractRegistry<TConfig extends ContractRegistryConfig> {
+	/** Typed service tag — use `yield* Contracts.Service` to access the registry */
+	readonly Service: Context.Tag<
+		ContractRegistryShape<TConfig>,
+		ContractRegistryShape<TConfig>
+	>;
+	/** Layer providing the typed contract registry */
+	readonly layer: Layer.Layer<
+		ContractRegistryShape<TConfig>,
+		never,
+		ProviderService
+	>;
+}
 
 /**
- * Service for accessing pre-configured contract instances.
- *
- * @description
- * Provides a named map of contract instances based on the configuration.
- * Contracts with addresses are fully instantiated ContractInstances.
- * Contracts without addresses provide a factory to create instances at any address.
- *
- * @since 0.5.0
- */
-export class ContractRegistryService extends Context.Tag(
-	"ContractRegistryService",
-)<ContractRegistryService, ContractRegistryBase>() {}
-
-/**
- * Creates a Layer that provides configured contract instances.
+ * Creates a typed contract registry with a Service tag and Layer.
  *
  * @param config - Map of contract names to their configurations (abi + optional address)
- * @returns Layer providing ContractRegistryService with typed contract instances
+ * @returns Object with `Service` (typed tag) and `layer` (providing the service)
  *
  * @since 0.5.0
  *
@@ -142,7 +135,7 @@ export class ContractRegistryService extends Context.Tag(
  * })
  *
  * const program = Effect.gen(function* () {
- *   const { USDC } = yield* ContractRegistryService
+ *   const { USDC } = yield* Contracts.Service
  *   return yield* USDC.read.balanceOf(userAddress)
  * })
  * ```
@@ -154,27 +147,34 @@ export class ContractRegistryService extends Context.Tag(
  * })
  *
  * const program = Effect.gen(function* () {
- *   const { ERC20 } = yield* ContractRegistryService
- *   const token = yield* ERC20.at('0x...')  // create at specific address
+ *   const { ERC20 } = yield* Contracts.Service
+ *   const token = yield* ERC20.at('0x...')
  *   return yield* token.read.balanceOf(userAddress)
  * })
  * ```
  */
-export const makeContractRegistry = <const TConfig extends ContractRegistryConfig>(
+export const makeContractRegistry = <
+	const TConfig extends ContractRegistryConfig,
+>(
 	config: TConfig,
-): Layer.Layer<ContractRegistryService, never, ProviderService> =>
-	Layer.effect(
-		ContractRegistryService,
+): ContractRegistry<TConfig> => {
+	type Registry = ContractRegistryShape<TConfig>;
+
+	const Service = Context.GenericTag<Registry>("ContractRegistryService");
+
+	const layer = Layer.effect(
+		Service,
 		Effect.gen(function* () {
-			const registry: ContractRegistryBase = {};
+			const registry: Record<string, unknown> = {};
 
 			for (const [name, contractDef] of Object.entries(config)) {
 				if (contractDef.address !== undefined) {
-					// Address provided - create full instance
-					const instance = yield* Contract(contractDef.address, contractDef.abi);
+					const instance = yield* Contract(
+						contractDef.address,
+						contractDef.abi,
+					);
 					registry[name] = instance;
 				} else {
-					// No address - create factory
 					const factory: ContractFactory<Abi> = {
 						abi: contractDef.abi,
 						at: (address) => Contract(address, contractDef.abi),
@@ -183,24 +183,9 @@ export const makeContractRegistry = <const TConfig extends ContractRegistryConfi
 				}
 			}
 
-			return registry;
+			return registry as Registry;
 		}),
 	);
 
-/**
- * Type helper to extract the contracts type from a config.
- *
- * @since 0.5.0
- *
- * @example
- * ```typescript
- * const config = {
- *   USDC: { abi: erc20Abi, address: '0x...' }
- * } as const
- *
- * type MyContracts = InferContractRegistry<typeof config>
- * // { USDC: ContractInstance<typeof erc20Abi> }
- * ```
- */
-export type InferContractRegistry<TConfig extends ContractRegistryConfig> =
-	ContractRegistryShape<TConfig>;
+	return { Service, layer };
+};

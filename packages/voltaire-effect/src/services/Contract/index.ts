@@ -8,7 +8,7 @@
  * This module provides two main features:
  *
  * 1. **Contract Factory** - `Contract()` function for creating individual contract instances
- * 2. **Contract Registry** - `ContractRegistryService` for managing multiple contracts as a named map
+ * 2. **Contract Registry** - `makeContractRegistry()` for managing multiple contracts as a named map
  *
  * ## Contract Factory
  *
@@ -19,12 +19,11 @@
  * ## Contract Registry
  *
  * For applications with multiple contracts, use `makeContractRegistry()` to define
- * all contracts once and access them via `ContractRegistryService`.
+ * all contracts once and access them via `makeContractRegistry().Service`.
  *
  * Main exports:
  * - {@link Contract} - Factory function to create individual contract instances
- * - {@link ContractRegistryService} - Service for accessing pre-configured contracts
- * - {@link makeContractRegistry} - Creates a layer with configured contracts
+ * - {@link makeContractRegistry} - Creates a typed Service tag and Layer for configured contracts
  *
  * Type exports:
  * - {@link ContractInstance} - Type-safe contract binding
@@ -58,7 +57,7 @@
  * @example Contract Registry (multiple contracts)
  * ```typescript
  * import { Effect } from 'effect'
- * import { ContractRegistryService, makeContractRegistry, Provider, HttpTransport } from 'voltaire-effect'
+ * import { makeContractRegistry, Provider, HttpTransport } from 'voltaire-effect'
  *
  * const Contracts = makeContractRegistry({
  *   USDC: { abi: erc20Abi, address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' },
@@ -67,12 +66,12 @@
  * })
  *
  * const program = Effect.gen(function* () {
- *   const contracts = yield* ContractRegistryService
+ *   const contracts = yield* Contracts.Service
  *   const usdcBalance = yield* contracts.USDC.read.balanceOf(userAddress)
  *   const token = yield* contracts.ERC20.at(dynamicAddress)  // Factory usage
  *   return usdcBalance
  * }).pipe(
- *   Effect.provide(Contracts),
+ *   Effect.provide(Contracts.layer),
  *   Effect.provide(Provider),
  *   Effect.provide(HttpTransport('https://...'))
  * )
@@ -99,10 +98,8 @@ export {
 export {
 	type ContractDef,
 	type ContractFactory,
-	type ContractRegistryBase,
 	type ContractRegistryConfig,
-	ContractRegistryService,
+	type ContractRegistry,
 	type ContractRegistryShape,
-	type InferContractRegistry,
 	makeContractRegistry,
 } from "./ContractsService.js";

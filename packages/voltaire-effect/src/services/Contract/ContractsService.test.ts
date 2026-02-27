@@ -2,14 +2,11 @@ import { describe, expect, it } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import {
-	ContractRegistryService,
 	makeContractRegistry,
 	type ContractFactory,
 	type ContractRegistryConfig,
-	type InferContractRegistry,
 } from "./ContractsService.js";
 import { ProviderService } from "../Provider/index.js";
-import type { ContractInstance } from "./ContractTypes.js";
 
 const erc20Abi = [
 	{
@@ -83,8 +80,8 @@ const MockProvider = Layer.succeed(ProviderService, {
 
 describe("ContractRegistryService", () => {
 	// Composed test layer to avoid chained Effect.provide anti-pattern
-	const createTestLayer = (Contracts: ReturnType<typeof makeContractRegistry>) =>
-		Layer.merge(Contracts, MockProvider);
+	const createTestLayer = (registry: { layer: Layer.Layer<any, never, ProviderService> }) =>
+		Layer.merge(registry.layer.pipe(Layer.provide(MockProvider)), MockProvider);
 
 	describe("makeContractRegistry", () => {
 		it("creates registry with addressed contracts", async () => {
@@ -102,17 +99,16 @@ describe("ContractRegistryService", () => {
 			const Contracts = makeContractRegistry(config);
 
 			const program = Effect.gen(function* () {
-				const contracts = yield* ContractRegistryService;
+				const contracts = yield* Contracts.Service;
 				expect(contracts.USDC).toBeDefined();
 				expect(contracts.WETH).toBeDefined();
 				// Addressed contracts should have read/write methods
-				const usdc = contracts.USDC as ContractInstance<typeof erc20Abi>;
-				expect(usdc.read).toBeDefined();
-				expect(usdc.read.balanceOf).toBeDefined();
-				expect(usdc.write).toBeDefined();
-				expect(usdc.write.transfer).toBeDefined();
-				expect(usdc.simulate).toBeDefined();
-				expect(usdc.getEvents).toBeDefined();
+				expect(contracts.USDC.read).toBeDefined();
+				expect(contracts.USDC.read.balanceOf).toBeDefined();
+				expect(contracts.USDC.write).toBeDefined();
+				expect(contracts.USDC.write.transfer).toBeDefined();
+				expect(contracts.USDC.simulate).toBeDefined();
+				expect(contracts.USDC.getEvents).toBeDefined();
 				return true;
 			});
 
@@ -130,13 +126,12 @@ describe("ContractRegistryService", () => {
 			const Contracts = makeContractRegistry(config);
 
 			const program = Effect.gen(function* () {
-				const contracts = yield* ContractRegistryService;
+				const contracts = yield* Contracts.Service;
 				expect(contracts.ERC20).toBeDefined();
 				// Factory contracts should have at() method
-				const factory = contracts.ERC20 as ContractFactory<typeof erc20Abi>;
-				expect(factory.at).toBeDefined();
-				expect(typeof factory.at).toBe("function");
-				expect(factory.abi).toEqual(erc20Abi);
+				expect(contracts.ERC20.at).toBeDefined();
+				expect(typeof contracts.ERC20.at).toBe("function");
+				expect(contracts.ERC20.abi).toEqual(erc20Abi);
 				return true;
 			});
 
@@ -158,17 +153,15 @@ describe("ContractRegistryService", () => {
 			const Contracts = makeContractRegistry(config);
 
 			const program = Effect.gen(function* () {
-				const contracts = yield* ContractRegistryService;
+				const contracts = yield* Contracts.Service;
 
 				// USDC should be a full instance
-				const usdc = contracts.USDC as ContractInstance<typeof erc20Abi>;
-				expect(usdc.read).toBeDefined();
-				expect(usdc.address).toBeDefined();
+				expect(contracts.USDC.read).toBeDefined();
+				expect(contracts.USDC.address).toBeDefined();
 
 				// ERC20 should be a factory
-				const factory = contracts.ERC20 as ContractFactory<typeof erc20Abi>;
-				expect(factory.at).toBeDefined();
-				expect(factory.abi).toBeDefined();
+				expect(contracts.ERC20.at).toBeDefined();
+				expect(contracts.ERC20.abi).toBeDefined();
 
 				return true;
 			});
@@ -187,9 +180,8 @@ describe("ContractRegistryService", () => {
 			const Contracts = makeContractRegistry(config);
 
 			const program = Effect.gen(function* () {
-				const contracts = yield* ContractRegistryService;
-				const factory = contracts.ERC20 as ContractFactory<typeof erc20Abi>;
-				const token = yield* factory.at(
+				const contracts = yield* Contracts.Service;
+				const token = yield* contracts.ERC20.at(
 					"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 				);
 				expect(token.read).toBeDefined();
@@ -216,9 +208,8 @@ describe("ContractRegistryService", () => {
 			const Contracts = makeContractRegistry(config);
 
 			const program = Effect.gen(function* () {
-				const contracts = yield* ContractRegistryService;
-				const usdc = contracts.USDC as ContractInstance<typeof erc20Abi>;
-				const balance = yield* usdc.read.balanceOf(
+				const contracts = yield* Contracts.Service;
+				const balance = yield* contracts.USDC.read.balanceOf(
 					"0x1234567890123456789012345678901234567890",
 				);
 				expect(balance).toBe(1000n);
@@ -239,9 +230,8 @@ describe("ContractRegistryService", () => {
 			const Contracts = makeContractRegistry(config);
 
 			const program = Effect.gen(function* () {
-				const contracts = yield* ContractRegistryService;
-				const factory = contracts.ERC20 as ContractFactory<typeof erc20Abi>;
-				const token = yield* factory.at(
+				const contracts = yield* Contracts.Service;
+				const token = yield* contracts.ERC20.at(
 					"0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 				);
 				const balance = yield* token.read.balanceOf(
@@ -262,7 +252,7 @@ describe("ContractRegistryService", () => {
 			const Contracts = makeContractRegistry(config);
 
 			const program = Effect.gen(function* () {
-				const contracts = yield* ContractRegistryService;
+				const contracts = yield* Contracts.Service;
 				expect(Object.keys(contracts)).toHaveLength(0);
 				return true;
 			});
@@ -288,13 +278,11 @@ describe("ContractRegistryService", () => {
 			const Contracts = makeContractRegistry(config);
 
 			const program = Effect.gen(function* () {
-				const contracts = yield* ContractRegistryService;
-				const tokenA = contracts.TokenA as ContractInstance<typeof erc20Abi>;
-				const tokenB = contracts.TokenB as ContractInstance<typeof erc20Abi>;
+				const contracts = yield* Contracts.Service;
 
 				// They should be different instances
-				expect(tokenA).not.toBe(tokenB);
-				expect(tokenA.address).not.toEqual(tokenB.address);
+				expect(contracts.TokenA).not.toBe(contracts.TokenB);
+				expect(contracts.TokenA.address).not.toEqual(contracts.TokenB.address);
 				return true;
 			});
 
@@ -306,34 +294,6 @@ describe("ContractRegistryService", () => {
 	});
 
 	describe("type inference", () => {
-		it("InferContractRegistry type works correctly", () => {
-			const config = {
-				USDC: {
-					abi: erc20Abi,
-					address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" as const,
-				},
-				ERC20: { abi: erc20Abi },
-			} as const;
-
-			// This is a compile-time check - if it compiles, the types work
-			type Registry = InferContractRegistry<typeof config>;
-
-			// Type assertions (these are compile-time checks)
-			const _checkUsdc: Registry["USDC"] extends ContractInstance<
-				typeof erc20Abi
-			>
-				? true
-				: false = true;
-			const _checkErc20: Registry["ERC20"] extends ContractFactory<
-				typeof erc20Abi
-			>
-				? true
-				: false = true;
-
-			expect(_checkUsdc).toBe(true);
-			expect(_checkErc20).toBe(true);
-		});
-
 		it("ContractRegistryConfig type is correctly constrained", () => {
 			// Valid config
 			const validConfig: ContractRegistryConfig = {
@@ -346,6 +306,36 @@ describe("ContractRegistryService", () => {
 
 			expect(validConfig.Token.abi).toBeDefined();
 			expect(validConfig.TokenWithAddress.address).toBeDefined();
+		});
+
+		it("yield* Contracts.Service returns properly typed contracts without casting", () => {
+			const config = {
+				USDC: {
+					abi: erc20Abi,
+					address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" as const,
+				},
+				ERC20: { abi: erc20Abi },
+			} as const;
+
+			const Contracts = makeContractRegistry(config);
+
+			// Compile-time type check: the program typechecks without any casts
+			const _program = Effect.gen(function* () {
+				const contracts = yield* Contracts.Service;
+
+				// Addressed contract: read/write accessible without casting
+				const _balanceOf = contracts.USDC.read.balanceOf;
+				const _transfer = contracts.USDC.write.transfer;
+
+				// Factory contract: at() accessible without casting
+				const _at = contracts.ERC20.at;
+				const _abi = contracts.ERC20.abi;
+
+				return true;
+			});
+
+			// If this compiles, types are preserved automatically
+			expect(true).toBe(true);
 		});
 	});
 });

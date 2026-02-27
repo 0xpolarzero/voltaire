@@ -11,7 +11,7 @@ The production grade robust abstraction layer for blockchain application develop
   <Tab title="voltaire-effect">
 ```typescript
 import { Effect, Layer } from 'effect'
-import { ContractRegistryService, makeContractRegistry, HttpProvider } from 'voltaire-effect'
+import { makeContractRegistry, HttpProvider } from 'voltaire-effect'
 
 const Contracts = makeContractRegistry({
 USDC: { abi: erc20Abi, address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' },
@@ -19,12 +19,12 @@ WETH: { abi: erc20Abi, address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2' },
 })
 
 // Compose layers first
-const AppLayer = Contracts.pipe(
+const AppLayer = Contracts.layer.pipe(
 Layer.provide(HttpProvider('https://eth.llamarpc.com'))
 )
 
 const program = Effect.gen(function* () {
-const { USDC, WETH } = yield* ContractRegistryService
+const { USDC, WETH } = yield* Contracts.Service
 const usdcBalance = yield* USDC.read.balanceOf(userAddress)
 const wethBalance = yield* WETH.read.balanceOf(userAddress)
 return { usdcBalance, wethBalance }

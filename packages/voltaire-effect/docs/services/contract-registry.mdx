@@ -10,7 +10,6 @@ The Contract Registry service provides a way to define your application's contra
 ```typescript
 import { Effect, Layer } from 'effect'
 import {
-  ContractRegistryService,
   makeContractRegistry,
   Provider,
   HttpTransport
@@ -47,11 +46,11 @@ const Contracts = makeContractRegistry({
 
 // Compose layers first
 const ProviderLayer = Provider.pipe(Layer.provide(HttpTransport('https://eth.llamarpc.com')))
-const AppLayer = Contracts.pipe(Layer.provide(ProviderLayer))
+const AppLayer = Contracts.layer.pipe(Layer.provide(ProviderLayer))
 
 // Use in your program
 const program = Effect.gen(function* () {
-  const contracts = yield* ContractRegistryService
+  const contracts = yield* Contracts.Service
 
   const usdcBalance = yield* contracts.USDC.read.balanceOf(userAddress)
   const wethBalance = yield* contracts.WETH.read.balanceOf(userAddress)
@@ -77,7 +76,7 @@ const Contracts = makeContractRegistry({
 })
 
 const program = Effect.gen(function* () {
-  const { USDC } = yield* ContractRegistryService
+  const { USDC } = yield* Contracts.Service
 
   // USDC is a ContractInstance - ready to use
   const balance = yield* USDC.read.balanceOf(account)
@@ -95,7 +94,7 @@ const Contracts = makeContractRegistry({
 })
 
 const program = Effect.gen(function* () {
-  const { ERC20 } = yield* ContractRegistryService
+  const { ERC20 } = yield* Contracts.Service
 
   // ERC20 is a ContractFactory - use .at() to create instances
   const usdc = yield* ERC20.at('0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48')
@@ -122,7 +121,7 @@ const Contracts = makeContractRegistry({
 })
 
 const program = Effect.gen(function* () {
-  const contracts = yield* ContractRegistryService
+  const contracts = yield* Contracts.Service
 
   // Use addressed contracts directly
   const usdcBalance = yield* contracts.USDC.read.balanceOf(account)
@@ -177,7 +176,7 @@ const Contracts = makeContractRegistry({
 })
 
 const program = Effect.gen(function* () {
-  const { Token } = yield* ContractRegistryService
+  const { Token } = yield* Contracts.Service
 
   // TypeScript knows balanceOf exists and its types
   const balance = yield* Token.read.balanceOf(account)  // bigint
@@ -187,24 +186,9 @@ const program = Effect.gen(function* () {
 })
 ```
 
-## Type Helper
+## Type Inference
 
-Use `InferContractRegistry` to extract types:
-
-```typescript
-import { InferContractRegistry, ContractInstance, ContractFactory } from 'voltaire-effect'
-
-const config = {
-  USDC: { abi: erc20Abi, address: '0x...' },
-  ERC20: { abi: erc20Abi }
-} as const
-
-type MyContracts = InferContractRegistry<typeof config>
-// {
-//   USDC: ContractInstance<typeof erc20Abi>
-//   ERC20: ContractFactory<typeof erc20Abi>
-// }
-```
+Types are preserved automatically — `yield* Contracts.Service` returns a fully typed map matching your registry config. No type helpers needed.
 
 ## Layer Composition
 
@@ -213,13 +197,12 @@ The registry layer requires `ProviderService`:
 ```typescript
 import * as Layer from 'effect/Layer'
 
-// Contracts layer depends on Provider
+// Contracts.layer depends on Provider
 const Contracts = makeContractRegistry({ ... })
-// Layer<ContractRegistryService, never, ProviderService>
 
 // Compose with Provider
 const ProviderLayer = Provider.pipe(Layer.provide(HttpTransport('https://eth.llamarpc.com')))
-const AppLayer = Contracts.pipe(Layer.provide(ProviderLayer))
+const AppLayer = Contracts.layer.pipe(Layer.provide(ProviderLayer))
 
 // Use in program
 const result = await Effect.runPromise(
@@ -245,7 +228,7 @@ export const Contracts = makeContractRegistry({
 
 ```typescript
 const program = Effect.gen(function* () {
-  const { ERC20 } = yield* ContractRegistryService
+  const { ERC20 } = yield* Contracts.Service
 
   // User provides token address at runtime
   const token = yield* ERC20.at(userProvidedAddress)
@@ -265,7 +248,7 @@ const arbitrumContracts = makeContractRegistry({
 })
 
 // Use the appropriate layer based on chain
-const ContractsLayer = isMainnet ? mainnetContracts : arbitrumContracts
+const ContractsLayer = isMainnet ? mainnetContracts.layer : arbitrumContracts.layer
 ```
 
 ## See Also

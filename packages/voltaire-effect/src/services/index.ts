@@ -202,14 +202,12 @@ export {
 	ContractEventError,
 	type ContractFactory,
 	type ContractInstance,
-	type ContractRegistryBase,
+	type ContractRegistry,
 	type ContractRegistryConfig,
-	ContractRegistryService,
 	type ContractRegistryShape,
 	ContractWriteError,
 	type DecodedEvent,
 	type EventFilter,
-	type InferContractRegistry,
 	makeContractRegistry,
 } from "./Contract/index.js";
 // Debug exports

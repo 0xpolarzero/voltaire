@@ -23,7 +23,7 @@ const balance = await client.readContract({
 **voltaire-effect** - explicit control over retry, timeout, and composition:
 ```typescript
 import { Effect } from 'effect'
-import { ContractRegistryService, makeContractRegistry, HttpProvider } from 'voltaire-effect'
+import { makeContractRegistry, HttpProvider } from 'voltaire-effect'
 
 const Contracts = makeContractRegistry({
   USDC: { abi: erc20Abi, address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' },
@@ -31,14 +31,14 @@ const Contracts = makeContractRegistry({
 })
 
 const program = Effect.gen(function* () {
-  const { USDC, WETH } = yield* ContractRegistryService
+  const { USDC, WETH } = yield* Contracts.Service
   const usdcBalance = yield* USDC.read.balanceOf(userAddress)
   const wethBalance = yield* WETH.read.balanceOf(userAddress)
   return { usdcBalance, wethBalance }
 }).pipe(
   Effect.retry({ times: 3 }),           // explicit retry policy
   Effect.timeout('10 seconds'),         // explicit timeout
-  Effect.provide(Contracts),
+  Effect.provide(Contracts.layer),
   Effect.provide(HttpProvider('https://eth.llamarpc.com'))
 )
 
@@ -143,7 +143,7 @@ const Contracts = makeContractRegistry({
 })
 
 const program = Effect.gen(function* () {
-  const { USDC } = yield* ContractRegistryService
+  const { USDC } = yield* Contracts.Service
   const balance = yield* USDC.read.balanceOf(account)
   const txHash = yield* USDC.write.transfer(recipient, amount)
 })
@@ -159,7 +159,7 @@ const Contracts = makeContractRegistry({
 })
 
 const program = Effect.gen(function* () {
-  const { ERC20 } = yield* ContractRegistryService
+  const { ERC20 } = yield* Contracts.Service
   const token = yield* ERC20.at(userProvidedAddress)
   const balance = yield* token.read.balanceOf(account)
 })
