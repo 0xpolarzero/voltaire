@@ -30,7 +30,7 @@ fn chunkify(allocator: std.mem.Allocator, data: []const u8) ![][CHUNK_SIZE]u8 {
 }
 
 /// Hashes two 32-byte values together
-fn hashPair(left: [32]u8, right: [32]u8) [32]u8 {
+pub fn hashPair(left: [32]u8, right: [32]u8) [32]u8 {
     var hasher = sha256.init(.{});
     hasher.update(&left);
     hasher.update(&right);
@@ -98,12 +98,12 @@ pub fn hashTreeRootBasic(comptime T: type, value: T) [32]u8 {
     var result = ZERO_HASH;
 
     switch (@typeInfo(T)) {
-        .Int => |int| {
+        .int => |int| {
             const bytes = std.mem.asBytes(&value);
             const len = int.bits / 8;
             @memcpy(result[0..len], bytes);
         },
-        .Bool => {
+        .bool => {
             result[0] = if (value) 1 else 0;
         },
         else => @compileError("Unsupported type for hashTreeRootBasic"),

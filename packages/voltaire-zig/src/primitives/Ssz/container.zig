@@ -10,7 +10,7 @@ const basicTypes = @import("basicTypes.zig");
 /// Checks if a type is fixed-size for SSZ purposes
 pub fn isFixedSize(comptime T: type) bool {
     return switch (@typeInfo(T)) {
-        .Int, .Bool => true,
+        .int, .bool => true,
         .Array => |arr| isFixedSize(arr.child),
         .Struct => |s| {
             inline for (s.fields) |field| {
@@ -27,8 +27,8 @@ pub fn fixedSize(comptime T: type) !usize {
     if (!isFixedSize(T)) return error.NotFixedSize;
 
     return switch (@typeInfo(T)) {
-        .Int => |int| int.bits / 8,
-        .Bool => 1,
+        .int => |int| int.bits / 8,
+        .bool => 1,
         .Array => |arr| {
             const child_size = try fixedSize(arr.child);
             return arr.len * child_size;
@@ -74,7 +74,7 @@ pub fn encodeContainer(allocator: std.mem.Allocator, comptime T: type, value: T)
         const field_size = try fixedSize(field.type);
 
         switch (@typeInfo(field.type)) {
-            .Int => |int| {
+            .int => |int| {
                 if (int.bits == 8) {
                     result[offset] = field_value;
                 } else if (int.bits == 16) {
@@ -93,7 +93,7 @@ pub fn encodeContainer(allocator: std.mem.Allocator, comptime T: type, value: T)
                     return error.UnsupportedIntSize;
                 }
             },
-            .Bool => {
+            .bool => {
                 result[offset] = if (field_value) 1 else 0;
             },
             .Array => {

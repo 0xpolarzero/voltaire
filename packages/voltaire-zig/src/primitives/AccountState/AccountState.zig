@@ -244,7 +244,7 @@ pub const AccountState = struct {
 
     /// RLP decode an account state from bytes.
     pub fn rlpDecode(allocator: std.mem.Allocator, data: []const u8) !Self {
-        const decoded = try Rlp.decode(allocator, data);
+        const decoded = try Rlp.decode(allocator, data, false);
         defer decoded.data.deinit(allocator);
 
         if (decoded.data != .List) {
